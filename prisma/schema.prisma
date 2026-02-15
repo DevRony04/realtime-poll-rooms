@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Poll model - stores poll metadata
+model Poll {
+  id          String   @id @default(uuid())
+  question    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime?
+  
+  // Relations
+  options     Option[]
+  votes       Vote[]
+  
+  @@index([createdAt])
+}
+
+// Option model - stores poll options
+model Option {
+  id       String @id @default(uuid())
+  text     String
+  pollId   String
+  position Int    // Order of options in the poll
+  
+  // Relations
+  poll     Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes    Vote[]
+  
+  @@index([pollId])
+  @@unique([pollId, position])
+}
+
+// Vote model - stores individual votes with anti-abuse tracking
+model Vote {
+  id              String   @id @default(uuid())
+  pollId          String
+  optionId        String
+  
+  // Anti-abuse mechanisms
+  ipAddress       String?  // Mechanism #1: IP-based tracking
+  fingerprint     String?  // Mechanism #2: Browser fingerprinting
+  userAgent       String?  // Additional metadata for abuse detection
+  
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  poll            Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option          Option   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  
+  @@index([pollId])
+  @@index([optionId])
+  @@index([ipAddress, pollId]) // For IP-based duplicate detection
+  @@index([fingerprint, pollId]) // For fingerprint-based duplicate detection
+}
