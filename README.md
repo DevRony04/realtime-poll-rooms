@@ -74,7 +74,7 @@ By using BOTH mechanisms, we make it significantly harder to abuse the voting sy
 
 ### Deployment
 - **Vercel** - Next.js hosting
-- **Vercel Postgres** or **Supabase** - PostgreSQL hosting
+- **Supabase** (recommended) or **Vercel Postgres** - PostgreSQL hosting with real-time capabilities
 
 ## Project Structure
 
@@ -97,7 +97,8 @@ realtime-poll-rooms/
 ├── components/
 │   └── ui/                                 # Reusable UI components
 ├── lib/
-│   ├── prisma.ts                           # Prisma client singleton
+│   ├── db.ts                               # PostgreSQL client (pg library)
+│   ├── supabase.ts                         # Supabase client config (optional)
 │   ├── pusher-server.ts                    # Pusher server config
 │   ├── pusher-client.ts                    # Pusher client config
 │   └── utils.ts                            # Utility functions
@@ -160,8 +161,23 @@ npm install
 Create a `.env` file in the root directory:
 
 ```env
-# Database - Get from your PostgreSQL provider
+# Database - Choose one option:
+
+# Option 1: Direct PostgreSQL (any provider)
 DATABASE_URL="postgresql://user:password@host:port/database?schema=public"
+
+# Option 2: Supabase (recommended - includes real-time features)
+# Get from https://app.supabase.com > Project Settings > API
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"  # Optional, for admin operations
+
+# Get from Project Settings > Database > Connection String
+# Note: Supabase Postgres requires SSL.
+# If you include `sslmode`, prefer `sslmode=verify-full` to avoid warnings.
+# IMPORTANT (Windows / IPv4-only networks): `db.<ref>.supabase.co` can be IPv6-only. If you get `getaddrinfo ENOTFOUND`,
+# use the "Connection pooling" hostname from Supabase (Settings > Database > Connection pooling) instead.
+DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres?sslmode=verify-full"
 
 # Pusher - Get from pusher.com (free account)
 NEXT_PUBLIC_PUSHER_APP_KEY="your_pusher_key"
@@ -179,26 +195,63 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000" # Change in production
 3. Copy credentials to `.env`
 
 ### 5. Set up PostgreSQL
-**Option A: Local PostgreSQL**
+
+**Option A: Supabase** (Recommended - includes real-time features)
+
+1. **Create a Supabase project**
+   - Go to [supabase.com](https://supabase.com) and sign up/login
+   - Click "New Project"
+   - Choose your organization, enter project name and database password
+   - Select a region close to your users
+   - Wait for project to be provisioned (~2 minutes)
+
+2. **Get your credentials**
+   - Go to Project Settings (gear icon) > API
+   - Copy the following to your `.env` file:
+     - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+     - **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+     - **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (optional, for admin operations)
+   - Go to Project Settings > Database
+   - Under "Connection string" > "URI", copy the connection string
+   - Replace `[YOUR-PASSWORD]` with your database password
+   - Add to `.env` as `DATABASE_URL`
+
+3. **Initialize the database schema**
+   - Go to SQL Editor in your Supabase dashboard
+   - Click "New Query"
+   - Copy the contents of `schema.sql` from this project
+   - Paste and click "Run"
+   - Verify tables were created in Table Editor
+
+4. **Connection Pooling (Optional but recommended for production)**
+   - In Project Settings > Database, use the "Connection pooling" string instead
+   - This provides better performance under high load
+   - Use mode "Transaction" for best compatibility
+
+**Option B: Local PostgreSQL**
 ```bash
 # Install PostgreSQL, then:
 createdb pollrooms
+psql pollrooms < schema.sql
 ```
 
-**Option B: Vercel Postgres** (Recommended for deployment)
+**Option C: Vercel Postgres**
 1. Create project on Vercel
-2. Add Postgres database
-3. Copy connection string to `.env`
+2. Add Postgres database from Storage tab
+3. Copy connection string to `.env` as `DATABASE_URL`
+4. Run the schema:
+   ```bash
+   # Install Vercel CLI if needed
+   npm i -g vercel
+   # Connect to your database
+   vercel env pull .env.local
+   # Run schema (you'll need to execute schema.sql manually via Vercel dashboard)
+   ```
 
-**Option C: Supabase** (Alternative cloud option)
-1. Create project at [supabase.com](https://supabase.com)
-2. Get connection string from Settings > Database
-3. Copy to `.env`
-
-### 6. Initialize database
+### 6. Verify database connection
 ```bash
-npx prisma generate
-npx prisma db push
+# Test that your DATABASE_URL is working
+node -e "const {Pool} = require('pg'); const pool = new Pool({connectionString: process.env.DATABASE_URL}); pool.query('SELECT NOW()', (err, res) => {console.log(err ? err : 'Connected!'); pool.end();})"
 ```
 
 ### 7. Run development server
@@ -285,12 +338,20 @@ In Vercel dashboard, add all variables from `.env`:
 - `NEXT_PUBLIC_APP_URL` (your Vercel URL)
 
 4. **Set up Database**
-- Add Vercel Postgres addon
+
+**Option A: Supabase (Recommended)**
+- Create a Supabase project at [supabase.com](https://supabase.com)
+- Run the `schema.sql` in SQL Editor (Project > SQL Editor > New Query)
+- Add environment variables in Vercel:
+  - `DATABASE_URL` (from Supabase Project Settings > Database > Connection String - use "Connection Pooling" for production)
+  - `NEXT_PUBLIC_SUPABASE_URL` (from Project Settings > API)
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (from Project Settings > API)
+  - `SUPABASE_SERVICE_ROLE_KEY` (optional, from Project Settings > API)
+
+**Option B: Vercel Postgres**
+- Add Vercel Postgres addon from your project's Storage tab
 - Copy connection string to environment variables
-- Run database migration:
-```bash
-npx prisma db push
-```
+- Run database schema via Vercel's SQL console or using a migration script
 
 5. **Deploy**
 - Vercel automatically builds and deploys
