@@ -2,12 +2,10 @@
 
 A full-stack web application for creating and sharing polls with real-time vote updates. Built with Next.js 14, TypeScript, PostgreSQL, and Pusher.
 
-## Live Demo
+## Screenshot
 
 
-
-https://github.com/user-attachments/assets/9d766ac3-466e-4714-b927-9a32f12ea237
-
+![alt text](<Screenshot 2026-02-17 132223.png>)
 
 
 ## Features
@@ -376,13 +374,13 @@ This is an assignment project. For the actual implementation:
 
 ## License
 
-MIT License - feel free to use this for learning!
+MIT License
 
 ## Author
 
-[Your Name]
-- GitHub: [@yourusername]
-- LinkedIn: [Your Profile]
+[Deepyaman Mondal]
+- GitHub: [https://github.com/DevRony04]
+- LinkedIn: [https://www.linkedin.com/in/deepyaman-mondal-8592a3265]
 
 ## Acknowledgments
 
