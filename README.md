@@ -355,7 +355,7 @@ In Vercel dashboard, add all variables from `.env`:
 
 5. **Deploy**
 - Vercel automatically builds and deploys
-- Your app is live at `https://your-app.vercel.app`
+- app is live at `https://realtime-poll-rooms-chi.vercel.app`
 
 ## Edge Cases Handled
 
@@ -439,7 +439,7 @@ MIT License
 
 ## Author
 
-[Deepyaman Mondal]
+Deepyaman Mondal
 - GitHub: [https://github.com/DevRony04]
 - LinkedIn: [https://www.linkedin.com/in/deepyaman-mondal-8592a3265]
 
