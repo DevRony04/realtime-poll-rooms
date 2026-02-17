@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { db } from '@/lib/db'
+// import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
@@ -8,30 +9,8 @@ export async function GET(
   try {
     const { pollId } = params
 
-    const poll = await prisma.poll.findUnique({
-      where: {
-        id: pollId,
-      },
-      include: {
-        options: {
-          orderBy: {
-            position: 'asc',
-          },
-          include: {
-            _count: {
-              select: {
-                votes: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            votes: true,
-          },
-        },
-      },
-    })
+    const pollResult = await db.query('SELECT * FROM "Poll" WHERE id = $1', [pollId])
+    const poll = pollResult.rows[0]
 
     if (!poll) {
       return NextResponse.json(
@@ -40,16 +19,23 @@ export async function GET(
       )
     }
 
+    const optionsResult = await db.query(`
+      SELECT o.*, COUNT(v.id)::int as votes 
+      FROM "Option" o 
+      LEFT JOIN "Vote" v ON v."optionId" = o.id 
+      WHERE o."pollId" = $1 
+      GROUP BY o.id 
+      ORDER BY o.position ASC
+    `, [pollId])
+
+    const options = optionsResult.rows
+    const totalVotes = options.reduce((acc, opt) => acc + opt.votes, 0)
+
     // Transform data to include vote counts
     const pollWithResults = {
       ...poll,
-      totalVotes: poll._count.votes,
-      options: poll.options.map((option) => ({
-        id: option.id,
-        text: option.text,
-        position: option.position,
-        votes: option._count.votes,
-      })),
+      totalVotes,
+      options,
     }
 
     return NextResponse.json(pollWithResults)

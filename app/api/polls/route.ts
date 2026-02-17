@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { db } from '@/lib/db'
+// import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,27 +38,51 @@ export async function POST(request: NextRequest) {
     }
 
     // Create poll with options in a transaction
-    const poll = await prisma.poll.create({
-      data: {
-        question: question.trim(),
-        expiresAt,
-        options: {
-          create: validOptions.map((text, index) => ({
-            text: text.trim(),
-            position: index,
-          })),
-        },
-      },
-      include: {
-        options: {
-          orderBy: {
-            position: 'asc',
-          },
-        },
-      },
-    })
+    const client = await db.getClient()
 
-    return NextResponse.json(poll, { status: 201 })
+    try {
+      await client.query('BEGIN')
+
+      const pollResult = await client.query(
+        `INSERT INTO "Poll" (question, "expiresAt") 
+         VALUES ($1, $2) 
+         RETURNING *`,
+        [question.trim(), expiresAt]
+      )
+      const poll = pollResult.rows[0]
+
+      const optionsWithPosition = validOptions.map((text, index) => ({
+        text: text.trim(),
+        position: index,
+        pollId: poll.id
+      }))
+
+      // Insert options
+      const insertedOptions = []
+      for (const opt of optionsWithPosition) {
+        const optResult = await client.query(
+          `INSERT INTO "Option" (text, position, "pollId") 
+           VALUES ($1, $2, $3) 
+           RETURNING *`,
+          [opt.text, opt.position, opt.pollId]
+        )
+        insertedOptions.push(optResult.rows[0])
+      }
+
+      await client.query('COMMIT')
+
+      const response = {
+        ...poll,
+        options: insertedOptions.sort((a, b) => a.position - b.position)
+      }
+
+      return NextResponse.json(response, { status: 201 })
+    } catch (e) {
+      await client.query('ROLLBACK')
+      throw e
+    } finally {
+      client.release()
+    }
   } catch (error) {
     console.error('Error creating poll:', error)
     return NextResponse.json(
